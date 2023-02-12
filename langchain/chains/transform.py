@@ -39,3 +39,7 @@ class TransformChain(Chain, BaseModel):
 
     def _call(self, inputs: Dict[str, str]) -> Dict[str, str]:
         return self.transform(inputs)
+
+    @property
+    def _chain_type(self) -> str:
+        return "transform_chain"

@@ -137,3 +137,7 @@ class SimpleSequentialChain(Chain, BaseModel):
                 _input, color=color_mapping[str(i)], end="\n", verbose=self.verbose
             )
         return {self.output_key: _input}
+
+    @property
+    def _chain_type(self) -> str:
+        return "sequential_chain"
