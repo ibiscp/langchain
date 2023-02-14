@@ -38,6 +38,16 @@ class Memory(BaseModel, ABC):
     def clear(self) -> None:
         """Clear memory contents."""
 
+    @property
+    def _memory_type(self) -> str:
+        raise NotImplementedError("Saving not supported for this memory type.")
+
+    def dict(self, **kwargs: Any) -> Dict:
+        """Return a dictionary of the Memory."""
+        _dict = super().dict()
+        _dict["_type"] = self._memory_type
+        return _dict
+
 
 def _get_verbosity() -> bool:
     return langchain.verbose
@@ -256,8 +266,6 @@ class Chain(BaseModel, ABC):
 
     def dict(self, **kwargs: Any) -> Dict:
         """Return dictionary representation of chain."""
-        if self.memory is not None:
-            raise ValueError("Saving of memory is not yet supported.")
         _dict = super().dict()
         _dict["_type"] = self._chain_type
         return _dict

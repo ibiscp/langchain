@@ -1,5 +1,5 @@
 """Memory modules for conversation prompts."""
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Type
 
 from pydantic import BaseModel, Field, root_validator
 
@@ -67,6 +67,10 @@ class CombinedMemory(Memory, BaseModel):
         for memory in self.memories:
             memory.save_context(inputs, outputs)
 
+    @property
+    def _memory_type(self) -> str:
+        return "combined"
+
     def clear(self) -> None:
         """Clear context from this session for every memory."""
         for memory in self.memories:
@@ -112,6 +116,10 @@ class ConversationBufferMemory(Memory, BaseModel):
         ai = f"{self.ai_prefix}: " + outputs[output_key]
         self.buffer += "\n" + "\n".join([human, ai])
 
+    @property
+    def _memory_type(self) -> str:
+        return "conversation_buffer"
+
     def clear(self) -> None:
         """Clear memory contents."""
         self.buffer = ""
@@ -156,6 +164,10 @@ class ConversationBufferWindowMemory(Memory, BaseModel):
         human = f"{self.human_prefix}: " + inputs[prompt_input_key]
         ai = f"{self.ai_prefix}: " + outputs[output_key]
         self.buffer.append("\n".join([human, ai]))
+
+    @property
+    def _memory_type(self) -> str:
+        return "conversation_buffer_window"
 
     def clear(self) -> None:
         """Clear memory contents."""
@@ -220,6 +232,10 @@ class ConversationSummaryMemory(Memory, BaseModel):
         new_lines = "\n".join([human, ai])
         chain = LLMChain(llm=self.llm, prompt=self.prompt)
         self.buffer = chain.predict(summary=self.buffer, new_lines=new_lines)
+
+    @property
+    def _memory_type(self) -> str:
+        return "conversation_summary"
 
     def clear(self) -> None:
         """Clear memory contents."""
@@ -303,6 +319,10 @@ class ConversationEntityMemory(Memory, BaseModel):
         new_lines = "\n".join([human, ai])
         self.buffer.append(new_lines)
 
+    @property
+    def _memory_type(self) -> str:
+        return "conversation_entity"
+
     def clear(self) -> None:
         """Clear memory contents."""
         self.buffer = []
@@ -382,6 +402,10 @@ class ConversationSummaryBufferMemory(Memory, BaseModel):
             self.moving_summary_buffer = chain.predict(
                 summary=self.moving_summary_buffer, new_lines=("\n".join(pruned_memory))
             )
+
+    @property
+    def _memory_type(self) -> str:
+        return "conversation_summary_buffer"
 
     def clear(self) -> None:
         """Clear memory contents."""
@@ -482,6 +506,31 @@ class ConversationKGMemory(Memory, BaseModel):
         new_lines = "\n".join([human.strip(), ai.strip()])
         self.buffer.append(new_lines)
 
+    @property
+    def _memory_type(self) -> str:
+        return "conversation_kg"
+
     def clear(self) -> None:
         """Clear memory contents."""
         return self.kg.clear()
+
+
+__all__ = [
+    "CombinedMemory",
+    "ConversationBufferMemory",
+    "ConversationBufferWindowMemory",
+    "ConversationSummaryMemory",
+    "ConversationEntityMemory",
+    "ConversationSummaryBufferMemory",
+    "ConversationKGMemory",
+]
+
+type_to_cls_dict: Dict[str, Type[Memory]] = {
+    "combined": CombinedMemory,
+    "conversation_buffer": ConversationBufferMemory,
+    "conversation_buffer_window": ConversationBufferWindowMemory,
+    "conversation_summary": ConversationSummaryMemory,
+    "conversation_entity": ConversationEntityMemory,
+    "conversation_summary_buffer": ConversationSummaryBufferMemory,
+    "conversation_kg": ConversationKGMemory,
+}
