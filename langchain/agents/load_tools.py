@@ -187,9 +187,49 @@ def load_tools(
             _get_tool_func, extra_keys = _EXTRA_OPTIONAL_TOOLS[name]
             sub_kwargs = {k: kwargs[k] for k in extra_keys if k in kwargs}
             tools.append(_get_tool_func(**sub_kwargs))
-
         else:
             raise ValueError(f"Got unknown tool {name}")
+    return tools
+
+
+def load_tools_from_config(config: dict[str, Any]) -> List[Tool]:
+    """Load tools based on a config dict.
+
+    Args:
+        config: config dict.
+
+    Returns:
+        List of tools.
+    """
+    tools = []
+    for tool in config:
+        tool_type = tool.pop("_type")
+        llm_config = tool.pop("llm", None)
+        llm = load_llm_from_config(llm_config) if llm_config else None
+        kwargs = tool
+        if tool_type in _BASE_TOOLS:
+            tools.append(_BASE_TOOLS[tool_type]())
+        elif tool_type in _LLM_TOOLS:
+            if llm is None:
+                raise ValueError(f"Tool {tool_type} requires an LLM to be provided")
+            tools.append(_LLM_TOOLS[tool_type](llm))
+        elif tool_type in _EXTRA_LLM_TOOLS:
+            if llm is None:
+                raise ValueError(f"Tool {tool_type} requires an LLM to be provided")
+            _get_llm_tool_func, extra_keys = _EXTRA_LLM_TOOLS[tool_type]
+            missing_keys = set(extra_keys).difference(kwargs)
+            if missing_keys:
+                raise ValueError(
+                    f"Tool {tool_type} requires some parameters that were not "
+                    f"provided: {missing_keys}"
+                )
+            tools.append(_get_llm_tool_func(llm=llm, **kwargs))
+        elif tool_type in _EXTRA_OPTIONAL_TOOLS:
+            _get_tool_func, extra_keys = _EXTRA_OPTIONAL_TOOLS[tool_type]
+            kwargs = {k: value for k, value in kwargs.items() if value}
+            tools.append(_get_tool_func(**kwargs))
+        else:
+            raise ValueError(f"Got unknown tool {tool_type}")
     return tools
 
 
