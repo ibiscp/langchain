@@ -14,6 +14,10 @@ from langchain.agents.tools import Tool
 from langchain.chains.loading import load_chain, load_chain_from_config
 from langchain.llms.base import BaseLLM
 from langchain.utilities.loading import try_load_from_hub
+from langchain.agents.agent import AgentExecutor
+from langchain.callbacks.base import BaseCallbackManager
+
+from langchain.agents.load_tools import load_tools_from_config
 
 AGENT_TO_CLASS = {
     "zero-shot-react-description": ZeroShotAgent,
@@ -37,6 +41,25 @@ def _load_agent_from_tools(
     agent_cls = AGENT_TO_CLASS[config_type]
     combined_config = {**config, **kwargs}
     return agent_cls.from_llm_and_tools(llm, tools, **combined_config)
+
+
+def load_agent_executor_from_config(
+    config: dict,
+    llm: Optional[BaseLLM] = None,
+    tools: Optional[List[Tool]] = None,
+    callback_manager: Optional[BaseCallbackManager] = None,
+    **kwargs: Any,
+):
+    tools = load_tools_from_config(config["allowed_tools"])
+    config['allowed_tools'] = [tool.name for tool in tools]
+    agent_obj = load_agent_from_config(config, llm, tools, **kwargs)
+
+    return AgentExecutor.from_agent_and_tools(
+        agent=agent_obj,
+        tools=tools,
+        callback_manager=callback_manager,
+        **kwargs,
+    )
 
 
 def load_agent_from_config(
