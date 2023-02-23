@@ -14,6 +14,7 @@ from langchain.serpapi import SerpAPIWrapper
 from langchain.utilities.bash import BashProcess
 from langchain.utilities.google_search import GoogleSearchAPIWrapper
 from langchain.utilities.wolfram_alpha import WolframAlphaAPIWrapper
+from langchain.llms.loading import load_llm_from_config
 
 
 def _get_python_repl() -> Tool:
