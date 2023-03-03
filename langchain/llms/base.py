@@ -165,15 +165,26 @@ class BaseLLM(BaseModel, ABC):
                 raise ValueError(
                     "Asked to cache, but no cache found at `langchain.cache`."
                 )
-            self.callback_manager.on_llm_start(
-                {"name": self.__class__.__name__}, prompts, verbose=self.verbose
-            )
+            if self.callback_manager.is_async:
+                await self.callback_manager.on_llm_start(
+                    {"name": self.__class__.__name__}, prompts, verbose=self.verbose
+                )
+            else:
+                self.callback_manager.on_llm_start(
+                    {"name": self.__class__.__name__}, prompts, verbose=self.verbose
+                )
             try:
                 output = await self._agenerate(prompts, stop=stop)
             except (KeyboardInterrupt, Exception) as e:
-                self.callback_manager.on_llm_error(e, verbose=self.verbose)
+                if self.callback_manager.is_async:
+                    await self.callback_manager.on_llm_error(e, verbose=self.verbose)
+                else:
+                    self.callback_manager.on_llm_error(e, verbose=self.verbose)
                 raise e
-            self.callback_manager.on_llm_end(output, verbose=self.verbose)
+            if self.callback_manager.is_async:
+                await self.callback_manager.on_llm_end(output, verbose=self.verbose)
+            else:
+                self.callback_manager.on_llm_end(output, verbose=self.verbose)
             return output
         params = self.dict()
         params["stop"] = stop
@@ -184,15 +195,32 @@ class BaseLLM(BaseModel, ABC):
             missing_prompts,
         ) = get_prompts(params, prompts)
         if len(missing_prompts) > 0:
-            self.callback_manager.on_llm_start(
-                {"name": self.__class__.__name__}, missing_prompts, verbose=self.verbose
-            )
+            if self.callback_manager.is_async:
+                await self.callback_manager.on_llm_start(
+                    {"name": self.__class__.__name__},
+                    missing_prompts,
+                    verbose=self.verbose,
+                )
+            else:
+                self.callback_manager.on_llm_start(
+                    {"name": self.__class__.__name__},
+                    missing_prompts,
+                    verbose=self.verbose,
+                )
             try:
                 new_results = await self._agenerate(missing_prompts, stop=stop)
             except (KeyboardInterrupt, Exception) as e:
-                self.callback_manager.on_llm_error(e, verbose=self.verbose)
+                if self.callback_manager.is_async:
+                    await self.callback_manager.on_llm_error(e, verbose=self.verbose)
+                else:
+                    self.callback_manager.on_llm_error(e, verbose=self.verbose)
                 raise e
-            self.callback_manager.on_llm_end(new_results, verbose=self.verbose)
+            if self.callback_manager.is_async:
+                await self.callback_manager.on_llm_end(
+                    new_results, verbose=self.verbose
+                )
+            else:
+                self.callback_manager.on_llm_end(new_results, verbose=self.verbose)
             llm_output = update_cache(
                 existing_prompts, llm_string, missing_prompt_idxs, new_results, prompts
             )
@@ -291,6 +319,10 @@ class LLM(BaseLLM):
     def _call(self, prompt: str, stop: Optional[List[str]] = None) -> str:
         """Run the LLM on the given prompt and input."""
 
+    async def _acall(self, prompt: str, stop: Optional[List[str]] = None) -> str:
+        """Run the LLM on the given prompt and input."""
+        raise NotImplementedError("Async generation not implemented for this LLM.")
+
     def _generate(
         self, prompts: List[str], stop: Optional[List[str]] = None
     ) -> LLMResult:
@@ -306,4 +338,8 @@ class LLM(BaseLLM):
         self, prompts: List[str], stop: Optional[List[str]] = None
     ) -> LLMResult:
         """Run the LLM on the given prompt and input."""
-        raise NotImplementedError("Async generation not implemented for this LLM.")
+        generations = []
+        for prompt in prompts:
+            text = await self._acall(prompt, stop=stop)
+            generations.append([Generation(text=text)])
+        return LLMResult(generations=generations)
